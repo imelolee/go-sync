@@ -3,6 +3,7 @@ package server
 import (
 	"embed"
 	"github.com/genleel/go-sync/server/controller"
+	ws "github.com/genleel/go-sync/server/websocket"
 	"github.com/gin-gonic/gin"
 	"io/fs"
 	"log"
@@ -16,13 +17,20 @@ var FS embed.FS
 func Run() {
 	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
+	hub := ws.NewHub()
+	go hub.Run()
 
 	staticFiles, _ := fs.Sub(FS, "frontend/dist")
+
 	r.GET("/uploads/:path", controller.UploadsController)
 	r.GET("/api/v1/addresses", controller.AddressController)
 	r.GET("/api/v1/qrcodes", controller.QrcodeController)
 	r.POST("/api/v1/texts", controller.TextController)
 	r.POST("/api/v1/files", controller.FileController)
+
+	r.GET("/ws", func(c *gin.Context) {
+		ws.HttpController(c, hub)
+	})
 	r.StaticFS("/static", http.FS(staticFiles))
 	r.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
@@ -40,6 +48,7 @@ func Run() {
 		} else {
 			c.Status(http.StatusNotFound)
 		}
+
 	})
 	r.Run(":27149")
 
